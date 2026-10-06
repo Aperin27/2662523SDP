@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import path from "node:path";
 
 // ---------------------------------------------------------------------------
 // Thin wrappers around the system git CLI. We never reimplement git — all
@@ -76,9 +77,16 @@ function run(
 }
 
 export async function isGitRepo(dir: string): Promise<boolean> {
+  // `dir` must BE a repo root, not merely sit inside some ancestor's work
+  // tree — data/repos/ lives inside this project's own worktree, so a plain
+  // `rev-parse --git-dir` would wrongly match the RAT repo itself and zip
+  // uploads would ingest the wrong history.
   try {
-    await run("git", ["rev-parse", "--git-dir"], { cwd: dir, timeoutMs: 10_000 });
-    return true;
+    const out = await run("git", ["rev-parse", "--show-toplevel"], {
+      cwd: dir,
+      timeoutMs: 10_000,
+    });
+    return path.resolve(out.trim()) === path.resolve(dir);
   } catch {
     return false;
   }

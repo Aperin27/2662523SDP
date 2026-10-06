@@ -7,7 +7,10 @@ export async function POST(req: NextRequest) {
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
   const ref = (form?.get("ref") as string | null)?.trim() || "HEAD";
-  if (!file || !(file instanceof File)) {
+  // Duck-typed file check: the `File` global only exists from Node 20 — this
+  // app must also run on Node 18, where formData() file entries still carry
+  // .name/.arrayBuffer but `instanceof File` throws ReferenceError.
+  if (!file || typeof file !== "object" || !("name" in file) || !("arrayBuffer" in file)) {
     return NextResponse.json({ error: "A zip file is required." }, { status: 400 });
   }
   if (!file.name.toLowerCase().endsWith(".zip")) {
