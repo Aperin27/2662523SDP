@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "selftest": "tsx scripts/selftest.ts",
+    "compare": "tsx scripts/compare.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
@@ -19,6 +21,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/oxide-linux-x64-gnu": "^4.3.3",
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
