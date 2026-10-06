@@ -6,7 +6,6 @@
  * sample CSV. Exits non-zero on any mismatch.
  */
 import fs from "node:fs";
-import { getDb } from "../lib/db";
 import { getObjectMetrics, type CommitSetSpec } from "../lib/metrics";
 import { getRepo, listRepos } from "../lib/repos";
 
@@ -98,7 +97,6 @@ async function main() {
     console.error("Usage: tsx scripts/compare.ts <repoSlugOrId> <csvPath>");
     process.exit(2);
   }
-  const db = getDb();
   const repos = listRepos(true);
   const repo =
     repos.find((r) => r.slug === repoArg) ?? getRepo(Number(repoArg));
@@ -122,7 +120,7 @@ async function main() {
 
   const spec: CommitSetSpec = { kind: "all" };
   let matched = 0;
-  let mismatches: string[] = [];
+  const mismatches: string[] = [];
   let checkedObjects = 0;
 
   for (const [key, expectedRows] of grouped) {
