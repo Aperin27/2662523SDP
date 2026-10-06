@@ -3,6 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import {
+  btnPrimary,
+  btnSecondary,
+  card,
+  inputCls,
+  selectCls,
+  tableTh,
+  tableThNum,
+  tableTd,
+  tableTdNum,
+  tableWrap,
+  IconArrowLeft,
+  IconDownload,
+  IconFile,
+  IconFolder,
+  IconSpinner,
+} from "../../ui";
 
 interface AllMetricRow {
   added: number;
@@ -72,6 +89,39 @@ function baseName(path: string) {
   if (path === "" || path === "/") return "/";
   const idx = path.lastIndexOf("/");
   return idx === -1 ? path : path.slice(idx + 1);
+}
+
+const CONTENT_COLS: [keyof ObjectListRow, string][] = [
+  ["added", "Added"],
+  ["removed", "Removed"],
+  ["growth", "Growth"],
+  ["churn", "Churn"],
+  ["modifications", "Mods"],
+  ["churnRate", "Churn rate"],
+];
+
+const AVATAR_BG = [
+  "bg-indigo-500",
+  "bg-emerald-500",
+  "bg-rose-500",
+  "bg-amber-500",
+  "bg-sky-500",
+  "bg-violet-500",
+  "bg-teal-500",
+  "bg-fuchsia-500",
+];
+
+function initialsOf(authorKey: string) {
+  const name = authorKey.replace(/\s*<.*>\s*/, "").trim() || authorKey;
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function avatarColor(authorKey: string) {
+  let h = 0;
+  for (let i = 0; i < authorKey.length; i++) h = (h * 31 + authorKey.charCodeAt(i)) | 0;
+  return AVATAR_BG[Math.abs(h) % AVATAR_BG.length];
 }
 
 export default function RepoPage() {
@@ -216,28 +266,46 @@ export default function RepoPage() {
     : [];
 
   if (!repo) {
-    return <main className="mx-auto max-w-6xl px-6 py-10 text-sm text-neutral-500">Loading…</main>;
+    return (
+      <main className="mx-auto max-w-6xl px-6 py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 w-32 rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div className="h-8 w-64 rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div className="h-28 rounded-xl bg-neutral-200 dark:bg-neutral-800" />
+        </div>
+      </main>
+    );
   }
 
   if (repo.status !== "ready") {
     return (
-      <main className="mx-auto max-w-6xl px-6 py-10">
-        <Link href="/" className="text-sm underline">
-          ← Repositories
+      <main className="mx-auto max-w-6xl px-6 py-8">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 transition hover:text-neutral-900 dark:hover:text-neutral-100"
+        >
+          <IconArrowLeft className="h-3.5 w-3.5" />
+          Repositories
         </Link>
-        <h1 className="mt-4 text-xl font-semibold">{repo.name}</h1>
+        <h1 className="mt-4 text-2xl font-bold tracking-tight">{repo.name}</h1>
         {repo.status === "failed" ? (
-          <p className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
             Ingest failed: {repo.error}
           </p>
         ) : (
-          <div className="mt-3">
-            <p className="text-sm text-neutral-500">
-              Analyzing… {job ? `${num(job.done)} / ${num(job.total)} commits` : "starting…"}
-            </p>
-            <div className="mt-2 h-2 w-full max-w-md overflow-hidden rounded bg-neutral-200 dark:bg-neutral-800">
+          <div className={`${card} mt-4 max-w-lg p-6`}>
+            <div className="flex items-center gap-3">
+              <IconSpinner className="h-5 w-5 shrink-0 animate-spin text-indigo-500" />
+              <div>
+                <h2 className="font-semibold">Analyzing repository…</h2>
+                <p className="mt-0.5 text-sm text-neutral-500">
+                  {job ? `${num(job.done)} / ${num(job.total)} commits ingested` : "Starting ingestion…"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
               <div
-                className="h-full bg-neutral-900 dark:bg-neutral-100"
+                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
                 style={{
                   width: job && job.total > 0 ? `${Math.min(100, (job.done / job.total) * 100)}%` : "5%",
                 }}
@@ -250,21 +318,35 @@ export default function RepoPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
-      <Link href="/" className="text-sm underline">
-        ← Repositories
+    <main className="mx-auto max-w-6xl px-6 py-8">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1.5 text-sm text-neutral-500 transition hover:text-neutral-900 dark:hover:text-neutral-100"
+      >
+        <IconArrowLeft className="h-3.5 w-3.5" />
+        Repositories
       </Link>
-      <h1 className="mt-4 text-xl font-semibold">{repo.name}</h1>
-      <p className="text-xs text-neutral-500">
-        ref <code>{repo.head_sha?.slice(0, 12)}</code> · {num(repo.commit_count)} non-merge commits
-      </p>
+
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{repo.name}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+            <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono dark:bg-neutral-800">
+              {repo.head_sha?.slice(0, 12) ?? "…"}
+            </code>
+            <span>{num(repo.commit_count)} non-merge commits</span>
+            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+            <span className="font-mono">{repo.source_type}</span>
+          </div>
+        </div>
+      </div>
 
       {/* Filters */}
-      <div className="mt-6 flex flex-wrap items-end gap-4 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
+      <div className={`${card} mt-6 flex flex-wrap items-end gap-4 p-4 text-sm`}>
         <div>
-          <label className="block text-xs text-neutral-500">Commit set</label>
+          <label className="block text-xs font-medium text-neutral-500">Commit set</label>
           <select
-            className="mt-1 rounded border border-neutral-300 bg-transparent px-2 py-1 dark:border-neutral-700"
+            className={`${selectCls} mt-1`}
             value={commitSetMode}
             onChange={(e) => setCommitSetMode(e.target.value as CommitSetMode)}
           >
@@ -276,19 +358,19 @@ export default function RepoPage() {
         {commitSetMode === "range" && (
           <>
             <div>
-              <label className="block text-xs text-neutral-500">From</label>
+              <label className="block text-xs font-medium text-neutral-500">From</label>
               <input
                 type="date"
-                className="mt-1 rounded border border-neutral-300 bg-transparent px-2 py-1 dark:border-neutral-700"
+                className={`${selectCls} mt-1`}
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-xs text-neutral-500">To (exclusive)</label>
+              <label className="block text-xs font-medium text-neutral-500">To (exclusive)</label>
               <input
                 type="date"
-                className="mt-1 rounded border border-neutral-300 bg-transparent px-2 py-1 dark:border-neutral-700"
+                className={`${selectCls} mt-1`}
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
               />
@@ -297,9 +379,11 @@ export default function RepoPage() {
         )}
         {commitSetMode === "manual" && (
           <div className="min-w-64 flex-1">
-            <label className="block text-xs text-neutral-500">Commit SHAs (comma/space separated)</label>
+            <label className="block text-xs font-medium text-neutral-500">
+              Commit SHAs (comma/space separated)
+            </label>
             <input
-              className="mt-1 w-full rounded border border-neutral-300 bg-transparent px-2 py-1 dark:border-neutral-700"
+              className={`${inputCls} mt-1`}
               value={manualShas}
               onChange={(e) => setManualShas(e.target.value)}
               placeholder="abc123, def456"
@@ -307,9 +391,9 @@ export default function RepoPage() {
           </div>
         )}
         <div>
-          <label className="block text-xs text-neutral-500">Author</label>
+          <label className="block text-xs font-medium text-neutral-500">Author</label>
           <select
-            className="mt-1 max-w-56 rounded border border-neutral-300 bg-transparent px-2 py-1 dark:border-neutral-700"
+            className={`${selectCls} mt-1 max-w-56`}
             value={authorFilter}
             onChange={(e) => setAuthorFilter(e.target.value)}
           >
@@ -321,151 +405,242 @@ export default function RepoPage() {
             ))}
           </select>
         </div>
-        <a
-          href={exportUrl()}
-          className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium dark:border-neutral-700"
-        >
+        <a href={exportUrl()} className={btnSecondary}>
+          <IconDownload className="h-3.5 w-3.5" />
           Export CSV
         </a>
       </div>
 
       {/* Breadcrumb */}
-      <div className="mt-4 text-sm">
-        <button onClick={navigateToRoot} className="underline">
-          /
+      <nav
+        className="mt-4 flex items-center gap-1 overflow-x-auto rounded-lg border border-neutral-200 bg-white px-3 py-2 font-mono text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        aria-label="Path"
+      >
+        <button
+          onClick={navigateToRoot}
+          className="shrink-0 rounded text-indigo-600 transition hover:underline dark:text-indigo-400"
+        >
+          root
         </button>
         {breadcrumbs.map((c, i) => (
-          <span key={c.path}>
-            {" / "}
+          <span key={c.path} className="flex shrink-0 items-center gap-1">
+            <span className="text-neutral-300 dark:text-neutral-700">/</span>
             {i === breadcrumbs.length - 1 ? (
-              c.label
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{c.label}</span>
             ) : (
-              <button onClick={() => navigateTo(c.path)} className="underline">
+              <button
+                onClick={() => navigateTo(c.path)}
+                className="rounded text-indigo-600 transition hover:underline dark:text-indigo-400"
+              >
                 {c.label}
               </button>
             )}
           </span>
         ))}
-      </div>
+      </nav>
 
       {/* Summary cards */}
       {data && (
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            ["Added", num(data.object.all.added)],
-            ["Removed", num(data.object.all.removed)],
-            ["Growth", num(data.object.all.growth)],
-            ["Churn", num(data.object.all.churn)],
-            ["Modifications", num(data.object.all.modifications)],
-            ["Mod. frequency", pct(data.object.all.modificationFrequency)],
-            ["Churn rate", num(data.object.all.churnRate, 2)],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
-            >
-              <div className="text-xs text-neutral-500">{label}</div>
-              <div className="text-lg font-semibold">{value}</div>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="mt-6 flex items-center gap-2.5">
+            <h2 className="text-lg font-semibold">Metrics</h2>
+            <span className="rounded-full border border-neutral-200 px-2.5 py-0.5 font-mono text-[11px] text-neutral-500 dark:border-neutral-700">
+              {currentType}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {(
+              [
+                ["l⁺", "Added", num(data.object.all.added), "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"],
+                ["l⁻", "Removed", num(data.object.all.removed), "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"],
+                ["δ", "Growth", num(data.object.all.growth), "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"],
+                ["λ", "Churn", num(data.object.all.churn), "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"],
+                ["n", "Modifications", num(data.object.all.modifications), "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"],
+                ["η", "Mod. frequency", pct(data.object.all.modificationFrequency), "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400"],
+                ["ρ", "Churn rate", num(data.object.all.churnRate, 2), "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400"],
+              ] as [string, string, string, string][]
+            ).map(([sym, label, value, chipCls]) => (
+              <div key={label} className={`${card} p-4`}>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[11px] font-bold ${chipCls}`}
+                  >
+                    {sym}
+                  </span>
+                  <span className="text-xs font-medium text-neutral-500">{label}</span>
+                </div>
+                <div className="mt-2 text-xl font-semibold tabular-nums tracking-tight">{value}</div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Children table */}
       {data && (data.children.directories.length > 0 || data.children.files.length > 0) && (
-        <div className="mt-6">
-          <h2 className="font-medium">Contents</h2>
-          <table className="mt-2 w-full text-sm">
-            <thead className="text-left text-neutral-500">
-              <tr>
-                <th className="py-1.5">Path</th>
-                {(["added", "removed", "growth", "churn", "modifications", "churnRate"] as const).map(
-                  (k) => (
-                    <th key={k} className="cursor-pointer select-none" onClick={() => toggleSort(k)}>
-                      {k}
-                      {sortKey === k ? (sortDesc ? " ↓" : " ↑") : ""}
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold">Contents</h2>
+          <div className={`${tableWrap} mt-3 bg-white dark:bg-neutral-900`}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className={`${tableTh} min-w-48`}>Path</th>
+                  {CONTENT_COLS.map(([k, label]) => (
+                    <th
+                      key={k}
+                      className={`${tableThNum} cursor-pointer select-none transition hover:text-neutral-800 dark:hover:text-neutral-200`}
+                      onClick={() => toggleSort(k)}
+                      title={`Sort by ${label}`}
+                    >
+                      <span className="inline-flex items-center justify-end gap-1">
+                        {label}
+                        {sortKey === k ? (
+                          <span className="font-bold text-indigo-500">{sortDesc ? "↓" : "↑"}</span>
+                        ) : (
+                          <span className="text-neutral-300 dark:text-neutral-600">↕</span>
+                        )}
+                      </span>
                     </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {sortRows(data.children.directories).map((d) => (
-                <tr key={d.path} className="border-t border-neutral-100 dark:border-neutral-800">
-                  <td className="py-1.5">
-                    <button onClick={() => navigateTo(d.path)} className="underline">
-                      📁 {baseName(d.path)}
-                    </button>
-                  </td>
-                  <td>{num(d.added)}</td>
-                  <td>{num(d.removed)}</td>
-                  <td>{num(d.growth)}</td>
-                  <td>{num(d.churn)}</td>
-                  <td>{num(d.modifications)}</td>
-                  <td>{num(d.churnRate, 2)}</td>
+                  ))}
                 </tr>
-              ))}
-              {sortRows(data.children.files).map((f) => (
-                <tr key={f.path} className="border-t border-neutral-100 dark:border-neutral-800">
-                  <td className="py-1.5">📄 {baseName(f.path)}</td>
-                  <td>{num(f.added)}</td>
-                  <td>{num(f.removed)}</td>
-                  <td>{num(f.growth)}</td>
-                  <td>{num(f.churn)}</td>
-                  <td>{num(f.modifications)}</td>
-                  <td>{num(f.churnRate, 2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sortRows(data.children.directories).map((d) => (
+                  <tr
+                    key={d.path}
+                    className="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
+                  >
+                    <td className={tableTd}>
+                      <button
+                        onClick={() => navigateTo(d.path)}
+                        className="inline-flex items-center gap-2 font-medium text-indigo-600 transition hover:underline dark:text-indigo-400"
+                      >
+                        <IconFolder className="h-4 w-4 text-indigo-400 dark:text-indigo-500" />
+                        {baseName(d.path)}
+                      </button>
+                    </td>
+                    <td className={tableTdNum}>{num(d.added)}</td>
+                    <td className={tableTdNum}>{num(d.removed)}</td>
+                    <td className={tableTdNum}>{num(d.growth)}</td>
+                    <td className={tableTdNum}>{num(d.churn)}</td>
+                    <td className={tableTdNum}>{num(d.modifications)}</td>
+                    <td className={tableTdNum}>{num(d.churnRate, 2)}</td>
+                  </tr>
+                ))}
+                {sortRows(data.children.files).map((f) => (
+                  <tr
+                    key={f.path}
+                    className="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
+                  >
+                    <td className={tableTd}>
+                      <span className="inline-flex items-center gap-2 font-medium">
+                        <IconFile className="h-4 w-4 text-neutral-400" />
+                        {baseName(f.path)}
+                      </span>
+                    </td>
+                    <td className={tableTdNum}>{num(f.added)}</td>
+                    <td className={tableTdNum}>{num(f.removed)}</td>
+                    <td className={tableTdNum}>{num(f.growth)}</td>
+                    <td className={tableTdNum}>{num(f.churn)}</td>
+                    <td className={tableTdNum}>{num(f.modifications)}</td>
+                    <td className={tableTdNum}>{num(f.churnRate, 2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {data && data.children.directories.length === 0 && data.children.files.length === 0 && (
-        <p className="mt-6 text-sm text-neutral-500">No changes under this path for the selected commit set.</p>
+        <p className="mt-6 rounded-xl border border-dashed border-neutral-300 bg-white/50 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900/50">
+          No changes under this path for the selected commit set.
+        </p>
       )}
 
       {/* Author ownership */}
       {data && (
         <div className="mt-8">
-          <h2 className="font-medium">Author ownership {authorFilter ? `(${authorFilter})` : ""}</h2>
-          <table className="mt-2 w-full text-sm">
-            <thead className="text-left text-neutral-500">
-              <tr>
-                <th className="py-1.5">Author</th>
-                <th>Added</th>
-                <th>Removed</th>
-                <th>Growth</th>
-                <th>Churn</th>
-                <th>Modifications</th>
-                <th>Ownership</th>
-              </tr>
-            </thead>
-            <tbody>
-              {authorRows.map((a) => (
-                <tr key={a.author} className="border-t border-neutral-100 dark:border-neutral-800">
-                  <td className="py-1.5">{a.author}</td>
-                  <td>{num(a.added)}</td>
-                  <td>{num(a.removed)}</td>
-                  <td>{num(a.growth)}</td>
-                  <td>{num(a.churn)}</td>
-                  <td>{num(a.modifications)}</td>
-                  <td>{pct(a.ownership)}</td>
+          <h2 className="text-lg font-semibold">
+            Author ownership{" "}
+            {authorFilter && (
+              <span className="font-mono text-xs font-normal text-neutral-500">({authorFilter})</span>
+            )}
+          </h2>
+          <div className={`${tableWrap} mt-3 bg-white dark:bg-neutral-900`}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className={tableTh}>Author</th>
+                  <th className={tableThNum}>Added</th>
+                  <th className={tableThNum}>Removed</th>
+                  <th className={tableThNum}>Growth</th>
+                  <th className={tableThNum}>Churn</th>
+                  <th className={tableThNum}>Mods</th>
+                  <th className={tableThNum}>Ownership</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {authorRows.map((a) => (
+                  <tr
+                    key={a.author}
+                    className="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
+                  >
+                    <td className={tableTd}>
+                      <span className="inline-flex items-center gap-2.5">
+                        <span
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white ${avatarColor(a.author)}`}
+                          title={a.author}
+                        >
+                          {initialsOf(a.author)}
+                        </span>
+                        <span className="font-medium">{a.author}</span>
+                      </span>
+                    </td>
+                    <td className={tableTdNum}>{num(a.added)}</td>
+                    <td className={tableTdNum}>{num(a.removed)}</td>
+                    <td className={tableTdNum}>{num(a.growth)}</td>
+                    <td className={tableTdNum}>{num(a.churn)}</td>
+                    <td className={tableTdNum}>{num(a.modifications)}</td>
+                    <td className={tableTdNum}>
+                      <span className="flex flex-col items-end gap-1.5">
+                        <span className="font-medium text-neutral-900 dark:text-neutral-200">
+                          {pct(a.ownership)}
+                        </span>
+                        <span className="block h-1.5 w-20 overflow-hidden rounded-full bg-neutral-200/70 dark:bg-neutral-700/50">
+                          <span
+                            className="block h-full rounded-full bg-indigo-500"
+                            style={{ width: `${Math.min(100, a.ownership * 100)}%` }}
+                          />
+                        </span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {authorRows.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="border-t border-neutral-100 px-4 py-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70"
+                    >
+                      No author changes under this path for the selected commit set.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Author merge */}
-      <form onSubmit={handleMerge} className="mt-8 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
-        <h2 className="font-medium">Merge authors</h2>
+      <form onSubmit={handleMerge} className={`${card} mt-8 p-5 text-sm`}>
+        <h2 className="font-semibold">Merge authors</h2>
         <p className="mt-1 text-xs text-neutral-500">
           Not covered by .mailmap? Merge two author identities manually.
         </p>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <select
-            className="min-w-56 rounded border border-neutral-300 bg-transparent px-2 py-1 dark:border-neutral-700"
+            className={`${selectCls} min-w-56`}
             value={mergeSource}
             onChange={(e) => setMergeSource(e.target.value)}
           >
@@ -476,9 +651,9 @@ export default function RepoPage() {
               </option>
             ))}
           </select>
-          <span className="text-neutral-500">into</span>
+          <span className="text-neutral-400">into</span>
           <select
-            className="min-w-56 rounded border border-neutral-300 bg-transparent px-2 py-1 dark:border-neutral-700"
+            className={`${selectCls} min-w-56`}
             value={mergeTarget}
             onChange={(e) => setMergeTarget(e.target.value)}
           >
@@ -492,7 +667,7 @@ export default function RepoPage() {
           <button
             type="submit"
             disabled={!mergeSource || !mergeTarget || mergeSource === mergeTarget}
-            className="rounded bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
+            className={`${btnPrimary} px-3 py-1.5 text-xs`}
           >
             Merge
           </button>
