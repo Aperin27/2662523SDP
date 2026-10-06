@@ -228,6 +228,27 @@ export function listChildren(
   };
 }
 
+export function parseCommitSetSpec(params: URLSearchParams): CommitSetSpec {
+  const kind = params.get("commitSet") ?? "all";
+  if (kind === "range") {
+    const from = params.get("from");
+    const to = params.get("to");
+    return {
+      kind: "range",
+      from: from ? Number(from) : undefined,
+      to: to ? Number(to) : undefined,
+    };
+  }
+  if (kind === "manual") {
+    const shas = (params.get("shas") ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return { kind: "manual", shas };
+  }
+  return { kind: "all" };
+}
+
 export function listAuthors(repoId: number): string[] {
   const db = getDb();
   const merged = new Set<string>();
