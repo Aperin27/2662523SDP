@@ -24,14 +24,46 @@ interface CsvRow {
   ownership: string;
 }
 
+/** RFC4180-ish CSV line splitter: handles quoted fields with embedded commas/quotes. */
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        out.push(field);
+        field = "";
+      } else {
+        field += ch;
+      }
+    }
+  }
+  out.push(field);
+  return out;
+}
+
 function parseCsv(text: string): CsvRow[] {
   const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
-  const header = lines[0].split(",");
+  const header = splitCsvLine(lines[0]);
   const idx = (name: string) => header.indexOf(name);
   const out: CsvRow[] = [];
   for (let i = 1; i < lines.length; i++) {
-    // simple CSV split (no quoted commas expected in this dataset's columns we use)
-    const cols = lines[i].split(",");
+    const cols = splitCsvLine(lines[i]);
     out.push({
       object_type: cols[idx("object_type")],
       path: cols[idx("path")],
@@ -48,6 +80,7 @@ function parseCsv(text: string): CsvRow[] {
   }
   return out;
 }
+
 
 function approxEq(a: number, b: number, tol = 1e-6): boolean {
   return Math.abs(a - b) <= tol * Math.max(1, Math.abs(a), Math.abs(b));

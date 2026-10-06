@@ -32,8 +32,13 @@ function uniqueSlug(db: ReturnType<typeof getDb>, base: string): string {
   return slug;
 }
 
-/** Add a repo by cloning a remote URL (full deep clone, never shallow). */
-export async function addRepoFromUrl(url: string, ref = "HEAD"): Promise<number> {
+/**
+ * Add a repo by cloning a remote URL (full deep clone, never shallow).
+ * Returns immediately once the repo row exists; cloning + ingestion run in
+ * the background and progress is visible via the jobs table (poll
+ * getRepo(id)/getLatestJob(id)) so the UI never blocks on large repos.
+ */
+export function addRepoFromUrl(url: string, ref = "HEAD"): number {
   const db = getDb();
   const base = slugify(url.replace(/\/$/, ""));
   const slug = uniqueSlug(db, base);
@@ -46,18 +51,24 @@ export async function addRepoFromUrl(url: string, ref = "HEAD"): Promise<number>
     )
     .run(slug, base, url, localPath, ref, Math.floor(Date.now() / 1000)).lastInsertRowid as number;
 
-  try {
-    await cloneRepo(url, localPath);
-    await ingestRepo(id, localPath, ref);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    db.prepare(`UPDATE repos SET status = 'failed', error = ? WHERE id = ?`).run(message, id);
-    throw err;
-  }
+  (async () => {
+    try {
+      await cloneRepo(url, localPath);
+      await ingestRepo(id, localPath, ref);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      db.prepare(`UPDATE repos SET status = 'failed', error = ? WHERE id = ?`).run(message, id);
+    }
+  })();
+
   return id;
 }
 
-/** Add a repo from an uploaded zip file (path to the zip already on disk). */
+/**
+ * Add a repo from an uploaded zip file (path to the zip already on disk).
+ * Extraction happens synchronously (needed to validate .git exists before
+ * replying), ingestion runs in the background like addRepoFromUrl.
+ */
 export async function addRepoFromZip(zipPath: string, displayName: string, ref = "HEAD"): Promise<number> {
   const db = getDb();
   const base = slugify(displayName);
@@ -97,15 +108,14 @@ export async function addRepoFromZip(zipPath: string, displayName: string, ref =
     )
     .run(slug, base, gitRoot, ref, Math.floor(Date.now() / 1000)).lastInsertRowid as number;
 
-  try {
-    await ingestRepo(id, gitRoot, ref);
-  } catch (err) {
+  ingestRepo(id, gitRoot, ref).catch((err) => {
     const message = err instanceof Error ? err.message : String(err);
     db.prepare(`UPDATE repos SET status = 'failed', error = ? WHERE id = ?`).run(message, id);
-    throw err;
-  }
+  });
+
   return id;
 }
+
 
 export function listRepos(includeArchived = false): RepoRow[] {
   const db = getDb();
@@ -119,6 +129,23 @@ export function getRepo(id: number): RepoRow | undefined {
   const db = getDb();
   return db.prepare(`SELECT * FROM repos WHERE id = ?`).get(id) as RepoRow | undefined;
 }
+
+export interface JobRow {
+  id: number;
+  repo_id: number;
+  status: string;
+  total: number;
+  done: number;
+  error: string | null;
+}
+
+export function getLatestJob(repoId: number): JobRow | undefined {
+  const db = getDb();
+  return db
+    .prepare(`SELECT * FROM jobs WHERE repo_id = ? ORDER BY id DESC LIMIT 1`)
+    .get(repoId) as JobRow | undefined;
+}
+
 
 export function archiveRepo(id: number, archived: boolean): void {
   const db = getDb();
